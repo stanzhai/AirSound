@@ -1,0 +1,20 @@
+﻿<Window x:Class="AirSoundServer.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="AirSound服务器" Height="350" Width="525" ResizeMode="CanMinimize" UseLayoutRounding="False" WindowStartupLocation="CenterScreen">
+    <Window.TaskbarItemInfo>
+        <TaskbarItemInfo />
+    </Window.TaskbarItemInfo>
+    <Grid>
+        <GroupBox Header="基本设置" Height="60" HorizontalAlignment="Left" Margin="12,12,0,0" Name="groupBox1" VerticalAlignment="Top" Width="491">
+            <Grid>
+                <Button Content="启动" Height="25" HorizontalAlignment="Left" Margin="398,6,0,0" Name="btnStart" VerticalAlignment="Top" Width="75" Background="GreenYellow" Click="btnStart_Click" />
+                <TextBlock HorizontalAlignment="Left" Margin="6,11,0,0" Name="textBlock1" Text="声音录入设备：" VerticalAlignment="Top" />
+                <ComboBox Height="25" HorizontalAlignment="Left" Margin="96,6,0,0" Name="comboBoxDevs" VerticalAlignment="Top" Width="296" />
+            </Grid>
+        </GroupBox>
+        <GroupBox Header="已接入客户端" Height="233" HorizontalAlignment="Left" Margin="12,78,0,0" Name="groupBox2" VerticalAlignment="Top" Width="491">
+            <Grid />
+        </GroupBox>
+    </Grid>
+</Window>
