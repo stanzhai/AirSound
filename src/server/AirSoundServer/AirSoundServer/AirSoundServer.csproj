@@ -59,6 +59,7 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="Configuration.cs" />
     <Compile Include="ServerThread.cs" />
     <Compile Include="ServerThreadData.cs" />
     <Compile Include="TCPServer.cs" />

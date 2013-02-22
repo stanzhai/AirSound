@@ -27,6 +27,21 @@ namespace AirSoundServer
         private WinSound.JitterBuffer m_JitterBufferClient;
         public WinSound.WaveFileHeader m_FileHeader = new WinSound.WaveFileHeader();
         private WinSound.Protocol m_PrototolClient = new WinSound.Protocol(WinSound.ProtocolTypes.LH, Encoding.Default);
+        private Configuration m_Config = new Configuration();
+
+        private int m_SoundBufferCount = 8;
+        private bool m_IsFormMain = true;
+        private long m_SequenceNumber = 4596;
+        private long m_TimeStamp = 0;
+        private int m_Version = 2;
+        private bool m_Padding = false;
+        private bool m_Extension = false;
+        private int m_CSRCCount = 0;
+        private bool m_Marker = false;
+        private int m_PayloadType = 0;
+        private uint m_SourceId = 0;
+        private bool m_IsTimerStreamRunning = false;
+
 
         public MainWindow()
         {
@@ -37,6 +52,7 @@ namespace AirSoundServer
         public void Init()
         {
             InitDevs();
+            InitJitterBuffer();
         }
 
         /// <summary>
@@ -56,6 +72,22 @@ namespace AirSoundServer
             {
                 comboBoxDevs.SelectedIndex = 0;
             }
+        }
+
+        /// <summary>
+        /// InitJitterBuffer
+        /// </summary>
+        private void InitJitterBuffer()
+        {
+            //Wenn vorhanden
+            if (m_JitterBufferClient != null)
+            {
+                m_JitterBufferClient.DataAvailable -= new WinSound.JitterBuffer.DelegateDataAvailable(OnJitterBufferClientDataAvailable);
+            }
+
+            //Neu erstellen
+            m_JitterBufferClient = new WinSound.JitterBuffer(null, m_Config.JitterBufferCount, 20);
+            m_JitterBufferClient.DataAvailable += new WinSound.JitterBuffer.DelegateDataAvailable(OnJitterBufferClientDataAvailable);
         }
 
         /// <summary>
@@ -87,7 +119,7 @@ namespace AirSoundServer
                     m_Server.ClientConnected += new TCPServer.DelegateClientConnected(OnServerClientConnected);
                     m_Server.ClientDisconnected += new TCPServer.DelegateClientDisconnected(OnServerClientDisconnected);
                     m_Server.DataReceived += new TCPServer.DelegateDataReceived(OnServerDataReceiced);
-                    m_Server.Start("127.0.0.1", 31832);
+                    m_Server.Start(31832);
 
                     //Je nach Server Status
                     if (m_Server.State == TCPServer.ListenerState.Started)
@@ -178,7 +210,7 @@ namespace AirSoundServer
                 //ServerThread Daten erstellen
                 ServerThreadData data = new ServerThreadData();
                 //Initialisieren
-                data.Init(st, m_Config.SoundDeviceNameServer, 8000, 16, 1, 8, 20, 20);
+                //data.Init(st, m_Config.SoundDeviceNameServer, 8000, 16, 1, 8, 20, 20);
                 //Hinzufügen
                 m_DictionaryServerDatas[st] = data;
                 //Zu FlowLayoutPanels hinzufügen
@@ -199,24 +231,10 @@ namespace AirSoundServer
         {
             try
             {
-                //FlowLayoutPanelServerClients.Invoke(new MethodInvoker(delegate()
-                //{
-                //    //Label erstellen
-                //    Label lab = new Label();
-                //    lab.AutoSize = false;
-                //    lab.BackColor = Color.DimGray;
-                //    lab.ForeColor = Color.White;
-                //    lab.Font = new Font(lab.Font, FontStyle.Bold);
-                //    lab.Margin = new Padding(5, FlowLayoutPanelServerClients.Controls.Count > 0 ? 5 : 10, 0, 5);
-                //    lab.TextAlign = ContentAlignment.MiddleCenter;
-                //    lab.Width = FlowLayoutPanelServerClients.Width - 10;
-                //    lab.Text = String.Format(st.Client.Client.RemoteEndPoint.ToString());
-                //    lab.Tag = st;
-                //    lab.Name = st.Client.Client.RemoteEndPoint.ToString();
-
-                //    //Hinzufügen
-                //    FlowLayoutPanelServerClients.Controls.Add(lab);
-                //}));
+                listBoxClients.Dispatcher.Invoke(new Action(() =>
+                {
+                    listBoxClients.Items.Add(st.Client.Client.RemoteEndPoint.ToString());
+                }));
             }
             catch (Exception ex)
             {
@@ -257,11 +275,10 @@ namespace AirSoundServer
         {
             try
             {
-                //FlowLayoutPanelServerClients.Invoke(new MethodInvoker(delegate()
-                //{
-                //    //Label löschen
-                //    FlowLayoutPanelServerClients.Controls.RemoveByKey(st.Client.Client.RemoteEndPoint.ToString());
-                //}));
+                listBoxClients.Dispatcher.Invoke(new Action(() =>
+                {
+                    listBoxClients.Items.Remove(st.Client.Client.RemoteEndPoint.ToString());
+                }));
             }
             catch (Exception ex)
             {
@@ -349,36 +366,37 @@ namespace AirSoundServer
             {
                 lock (this)
                 {
-                    if (IsClientConnected)
+                    if (IsServerRunning)
                     {
                         //Wenn Form noch aktiv
                         if (m_IsFormMain)
                         {
+                            Byte[] rtp = ToRTPData(data, m_Config.BitsPerSampleClient, m_Config.ChannelsClient);
+                            //Absenden
+                            m_Server.Send(m_PrototolClient.ToBytes(rtp));
+
                             //Wenn JitterBuffer
-                            if (UseJitterBufferClient)
-                            {
-                                //Sounddaten in kleinere Einzelteile zerlegen
-                                int bytesPerInterval = WinSound.Utils.GetBytesPerInterval((uint)m_Config.SamplesPerSecondClient, m_Config.BitsPerSampleClient, m_Config.ChannelsClient);
-                                int count = data.Length / bytesPerInterval;
-                                int currentPos = 0;
-                                for (int i = 0; i < count; i++)
-                                {
-                                    //Teilstück in RTP Packet umwandeln
-                                    Byte[] partBytes = new Byte[bytesPerInterval];
-                                    Array.Copy(data, currentPos, partBytes, 0, bytesPerInterval);
-                                    currentPos += bytesPerInterval;
-                                    WinSound.RTPPacket rtp = ToRTPPacket(partBytes, m_Config.BitsPerSampleClient, m_Config.ChannelsClient);
-                                    //In Buffer legen
-                                    m_JitterBufferClient.AddData(rtp);
-                                }
-                            }
-                            else
-                            {
-                                //Alles in RTP Packet umwandeln
-                                Byte[] rtp = ToRTPData(data, m_Config.BitsPerSampleClient, m_Config.ChannelsClient);
-                                //Absenden
-                                m_Server.Send(m_PrototolClient.ToBytes(rtp));
-                            }
+                            //if (m_Config.IsTimeSyncClient)
+                            //{
+                            //    //Sounddaten in kleinere Einzelteile zerlegen
+                            //    int bytesPerInterval = WinSound.Utils.GetBytesPerInterval((uint)m_Config.SamplesPerSecondClient, m_Config.BitsPerSampleClient, m_Config.ChannelsClient);
+                            //    int count = data.Length / bytesPerInterval;
+                            //    int currentPos = 0;
+                            //    for (int i = 0; i < count; i++)
+                            //    {
+                            //        //Teilstück in RTP Packet umwandeln
+                            //        Byte[] partBytes = new Byte[bytesPerInterval];
+                            //        Array.Copy(data, currentPos, partBytes, 0, bytesPerInterval);
+                            //        currentPos += bytesPerInterval;
+                            //        WinSound.RTPPacket rtp = ToRTPPacket(partBytes, m_Config.BitsPerSampleClient, m_Config.ChannelsClient);
+                            //        //In Buffer legen
+                            //        m_JitterBufferClient.AddData(rtp);
+                            //    }
+                            //}
+                            //else
+                            //{
+                            //    //Alles in RTP Packet umwandeln
+                            //}
                         }
                     }
                 }
@@ -396,14 +414,14 @@ namespace AirSoundServer
         {
             try
             {
-                if (IsClientConnected)
+                if (IsServerRunning)
                 {
                     if (m_IsFormMain)
                     {
                         //RTP Packet in Bytes umwandeln
                         Byte[] rtpBytes = rtp.ToBytes();
                         //Absenden
-                        m_Client.Send(m_PrototolClient.ToBytes(rtpBytes));
+                        m_Server.Send(m_PrototolClient.ToBytes(rtpBytes));
                     }
                 }
             }
@@ -486,11 +504,11 @@ namespace AirSoundServer
         {
             try
             {
-                if (IsRecorderFromSounddeviceStarted == false)
+                if (IsServerRunning == false)
                 {
                     //Buffer Grösse berechnen
                     int bufferSize = 0;
-                    if (UseJitterBufferClient)
+                    if (m_Config.IsTimeSyncClient)
                     {
                         bufferSize = WinSound.Utils.GetBytesPerInterval((uint)m_Config.SamplesPerSecondClient, m_Config.BitsPerSampleClient, m_Config.ChannelsClient) * (int)m_RecorderFactor;
                     }
@@ -510,13 +528,10 @@ namespace AirSoundServer
                         m_Recorder.RecordingStopped += new WinSound.Recorder.DelegateStopped(OnRecordingStopped);
 
                         //Recorder starten
-                        if (m_Recorder.Start(m_Config.SoundDeviceNameClient, m_Config.SamplesPerSecondClient, m_Config.BitsPerSampleClient, m_Config.ChannelsClient, m_SoundBufferCount, bufferSize))
+                        if (m_Recorder.Start(comboBoxDevs.SelectedItem.ToString(), m_Config.SamplesPerSecondClient, m_Config.BitsPerSampleClient, m_Config.ChannelsClient, m_SoundBufferCount, bufferSize))
                         {
-                            //Anzeigen
-                            ShowStreamingFromSounddeviceStarted();
-
                             //Wenn JitterBuffer
-                            if (UseJitterBufferClient)
+                            if (m_Config.IsTimeSyncClient)
                             {
                                 m_JitterBufferClient.Start();
                             }
@@ -527,7 +542,7 @@ namespace AirSoundServer
             }
             catch (Exception ex)
             {
-                ShowError(LabelClient, ex.Message);
+                ShowError(ex.Message);
             }
         }
         /// <summary>
@@ -537,7 +552,7 @@ namespace AirSoundServer
         {
             try
             {
-                if (IsRecorderFromSounddeviceStarted)
+                if (IsServerRunning)
                 {
                     //Stoppen
                     m_Recorder.Stop();
@@ -548,18 +563,15 @@ namespace AirSoundServer
                     m_Recorder = null;
 
                     //Wenn JitterBuffer
-                    if (UseJitterBufferClient)
+                    if (m_Config.IsTimeSyncClient)
                     {
                         m_JitterBufferClient.Stop();
                     }
-
-                    //Anzeigen
-                    ShowStreamingFromSounddeviceStopped();
                 }
             }
             catch (Exception ex)
             {
-                ShowError(LabelClient, ex.Message);
+                ShowError(ex.Message);
             }
         }
         /// <summary>
@@ -567,19 +579,6 @@ namespace AirSoundServer
         /// </summary>
         private void OnRecordingStopped()
         {
-            try
-            {
-                this.Invoke(new MethodInvoker(delegate()
-                {
-                    //Anzeigen
-                    ShowStreamingFromSounddeviceStopped();
-
-                }));
-            }
-            catch (Exception ex)
-            {
-                ShowError(LabelClient, ex.Message);
-            }
         }
 
 
@@ -615,12 +614,21 @@ namespace AirSoundServer
         {
             if (IsServerRunning)
             {
+                StopRecordingFromSounddevice();
                 StopServer();
             }
             else
             {
+                StartRecordingFromSounddevice();
                 StartServer();
             }
+        }
+
+        private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            m_IsFormMain = false;
+            StopRecordingFromSounddevice();
+            StopServer();
         }
     }
 }

@@ -1,7 +1,7 @@
 ﻿<Window x:Class="AirSoundServer.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="AirSound服务器" Height="350" Width="525" ResizeMode="CanMinimize" UseLayoutRounding="False" WindowStartupLocation="CenterScreen">
+        Title="AirSound服务器" Height="350" Width="525" ResizeMode="CanMinimize" UseLayoutRounding="False" WindowStartupLocation="CenterScreen" Closing="Window_Closing">
     <Window.TaskbarItemInfo>
         <TaskbarItemInfo />
     </Window.TaskbarItemInfo>
@@ -14,7 +14,9 @@
             </Grid>
         </GroupBox>
         <GroupBox Header="已接入客户端" Height="233" HorizontalAlignment="Left" Margin="12,78,0,0" Name="groupBox2" VerticalAlignment="Top" Width="491">
-            <Grid />
+            <Grid>
+                <ListBox Height="198.164" HorizontalAlignment="Left" Margin="6,6,0,0" Name="listBoxClients" VerticalAlignment="Top" Width="467" />
+            </Grid>
         </GroupBox>
     </Grid>
 </Window>

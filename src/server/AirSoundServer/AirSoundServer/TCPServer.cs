@@ -88,13 +88,15 @@ namespace AirSoundServer
                 return this.m_tcpip;
             }
         }
+
         /// <summary>
-        /// Starten des Servers
+        /// 启动服务器
         /// </summary>
-        public void Start(string strIPAdress, int Port)
+        /// <param name="Port">监听端口号</param>
+        public void Start(int Port)
         {
             //Endpoint und Listener bestimmen
-            m_endpoint = new IPEndPoint(IPAddress.Parse(strIPAdress), Port);
+            m_endpoint = new IPEndPoint(IPAddress.Any, Port);
             m_tcpip = new TcpListener(m_endpoint);
 
             if (m_tcpip == null) return;
