@@ -3,14 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 
 namespace AirSoundServer
 {
@@ -24,7 +16,7 @@ namespace AirSoundServer
         private TCPServer m_Server;
         private WinSound.Recorder m_Recorder;
         private uint m_RecorderFactor = 4;
-        private WinSound.JitterBuffer m_JitterBufferClient;
+        private WinSound.JitterBuffer m_JitterBuffer;
         public WinSound.WaveFileHeader m_FileHeader = new WinSound.WaveFileHeader();
         private WinSound.Protocol m_PrototolClient = new WinSound.Protocol(WinSound.ProtocolTypes.LH, Encoding.Default);
         private Configuration m_Config = new Configuration();
@@ -80,14 +72,14 @@ namespace AirSoundServer
         private void InitJitterBuffer()
         {
             //Wenn vorhanden
-            if (m_JitterBufferClient != null)
+            if (m_JitterBuffer != null)
             {
-                m_JitterBufferClient.DataAvailable -= new WinSound.JitterBuffer.DelegateDataAvailable(OnJitterBufferClientDataAvailable);
+                m_JitterBuffer.DataAvailable -= new WinSound.JitterBuffer.DelegateDataAvailable(OnJitterBufferDataAvailable);
             }
 
             //Neu erstellen
-            m_JitterBufferClient = new WinSound.JitterBuffer(null, m_Config.JitterBufferCount, 20);
-            m_JitterBufferClient.DataAvailable += new WinSound.JitterBuffer.DelegateDataAvailable(OnJitterBufferClientDataAvailable);
+            m_JitterBuffer = new WinSound.JitterBuffer(null, m_Config.JitterBufferCount, 20);
+            m_JitterBuffer.DataAvailable += new WinSound.JitterBuffer.DelegateDataAvailable(OnJitterBufferDataAvailable);
         }
 
         /// <summary>
@@ -371,32 +363,31 @@ namespace AirSoundServer
                         //Wenn Form noch aktiv
                         if (m_IsFormMain)
                         {
-                            Byte[] rtp = ToRTPData(data, m_Config.BitsPerSampleClient, m_Config.ChannelsClient);
-                            //Absenden
-                            m_Server.Send(m_PrototolClient.ToBytes(rtp));
 
                             //Wenn JitterBuffer
-                            //if (m_Config.IsTimeSyncClient)
-                            //{
-                            //    //Sounddaten in kleinere Einzelteile zerlegen
-                            //    int bytesPerInterval = WinSound.Utils.GetBytesPerInterval((uint)m_Config.SamplesPerSecondClient, m_Config.BitsPerSampleClient, m_Config.ChannelsClient);
-                            //    int count = data.Length / bytesPerInterval;
-                            //    int currentPos = 0;
-                            //    for (int i = 0; i < count; i++)
-                            //    {
-                            //        //Teilstück in RTP Packet umwandeln
-                            //        Byte[] partBytes = new Byte[bytesPerInterval];
-                            //        Array.Copy(data, currentPos, partBytes, 0, bytesPerInterval);
-                            //        currentPos += bytesPerInterval;
-                            //        WinSound.RTPPacket rtp = ToRTPPacket(partBytes, m_Config.BitsPerSampleClient, m_Config.ChannelsClient);
-                            //        //In Buffer legen
-                            //        m_JitterBufferClient.AddData(rtp);
-                            //    }
-                            //}
-                            //else
-                            //{
-                            //    //Alles in RTP Packet umwandeln
-                            //}
+                            if (m_Config.IsTimeSyncClient)
+                            {
+                                //Sounddaten in kleinere Einzelteile zerlegen
+                                int bytesPerInterval = WinSound.Utils.GetBytesPerInterval((uint)m_Config.SamplesPerSecondClient, m_Config.BitsPerSampleClient, m_Config.ChannelsClient);
+                                int count = data.Length / bytesPerInterval;
+                                int currentPos = 0;
+                                for (int i = 0; i < count; i++)
+                                {
+                                    //Teilstück in RTP Packet umwandeln
+                                    Byte[] partBytes = new Byte[bytesPerInterval];
+                                    Array.Copy(data, currentPos, partBytes, 0, bytesPerInterval);
+                                    currentPos += bytesPerInterval;
+                                    WinSound.RTPPacket rtp = ToRTPPacket(partBytes, m_Config.BitsPerSampleClient, m_Config.ChannelsClient);
+                                    //In Buffer legen
+                                    m_JitterBuffer.AddData(rtp);
+                                }
+                            }
+                            else
+                            {
+                                Byte[] rtp = ToRTPData(data, m_Config.BitsPerSampleClient, m_Config.ChannelsClient);
+                                //Absenden
+                                m_Server.Send(m_PrototolClient.ToBytes(rtp));
+                            }
                         }
                     }
                 }
@@ -407,10 +398,10 @@ namespace AirSoundServer
             }
         }
         /// <summary>
-        /// OnJitterBufferClientDataAvailable
+        /// OnJitterBufferDataAvailable
         /// </summary>
         /// <param name="rtp"></param>
-        private void OnJitterBufferClientDataAvailable(Object sender, WinSound.RTPPacket rtp)
+        private void OnJitterBufferDataAvailable(Object sender, WinSound.RTPPacket rtp)
         {
             try
             {
@@ -533,7 +524,7 @@ namespace AirSoundServer
                             //Wenn JitterBuffer
                             if (m_Config.IsTimeSyncClient)
                             {
-                                m_JitterBufferClient.Start();
+                                m_JitterBuffer.Start();
                             }
                         }
                     }
@@ -565,7 +556,7 @@ namespace AirSoundServer
                     //Wenn JitterBuffer
                     if (m_Config.IsTimeSyncClient)
                     {
-                        m_JitterBufferClient.Stop();
+                        m_JitterBuffer.Stop();
                     }
                 }
             }
