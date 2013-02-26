@@ -29,3 +29,10 @@ _ReSharper*/
 [Tt]est[Rr]esult*
 *.vssscc
 $tf*/
+
+*.class
+
+# Package Files #
+*.jar
+*.war
+*.ear
