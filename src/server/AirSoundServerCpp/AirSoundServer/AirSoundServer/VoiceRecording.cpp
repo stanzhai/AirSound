@@ -56,7 +56,7 @@ BOOL CVoiceRecording::Open()
 	if (IsOpen())
 		return FALSE;
 	
-	res=waveInOpen(&hWaveIn, (UINT) WAVE_MAPPER, &PCMfmt, (DWORD) VoiceWaveInProc, (DWORD) this, CALLBACK_FUNCTION);
+	res=waveInOpen(&hWaveIn, 0 /*(UINT) WAVE_MAPPER*/, &PCMfmt, (DWORD) VoiceWaveInProc, (DWORD) this, CALLBACK_FUNCTION);
 	GetMMResult(res);
 	if (res!=MMSYSERR_NOERROR)
 	{
