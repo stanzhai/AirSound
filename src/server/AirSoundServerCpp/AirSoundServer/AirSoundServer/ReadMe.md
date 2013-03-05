@@ -1,3 +1,0 @@
-﻿# AirSoundServer - Cpp
-
-使用C++实现的高性能AirSound服务端，开发中……
