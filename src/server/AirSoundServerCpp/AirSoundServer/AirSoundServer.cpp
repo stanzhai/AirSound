@@ -8,6 +8,7 @@
 #include "VoiceRecording.h"
 #include "VoicePlaying.h"
 #include <ShellAPI.h>
+#include <dwmapi.h>
 
 // 全局变量:
 HINSTANCE g_hInst;								// 当前实例
@@ -23,6 +24,7 @@ CVoicePlaying m_Play;
 LRESULT CALLBACK DialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 void Init(HWND hDlgWnd);
 void AddRecordDev(int id, string devName);
+HRESULT EnableBlurBehind(HWND hwnd);
 
 int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -92,6 +94,22 @@ LRESULT CALLBACK DialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
 				PostMessage(g_hMainWnd, WM_NULL, NULL, NULL);
 			}
 		}  
+	case WM_PAINT:
+		{
+			BOOL bCompEnabled;
+			DwmIsCompositionEnabled(&bCompEnabled);
+			if (bCompEnabled)
+			{
+				PAINTSTRUCT ps;
+				HDC hDC = BeginPaint(g_hMainWnd, &ps);
+				RECT rcClient;
+				GetClientRect(g_hMainWnd, &rcClient);
+				HBRUSH hBrush = CreateSolidBrush(RGB(0, 0, 0));
+				FillRect(hDC, &rcClient, hBrush);
+				EndPaint(g_hMainWnd, &ps);
+			}
+		}
+		break;
 	}
 	return FALSE;
 }
@@ -118,6 +136,7 @@ void Init(HWND hDlgWnd)
 	g_nid.uFlags = NIF_ICON | NIF_TIP | NIF_MESSAGE;
 	strcpy(g_nid.szTip, TEXT("AirSoundServer"));
 	Shell_NotifyIcon(NIM_ADD, &g_nid);
+	EnableBlurBehind(g_hMainWnd);
 }
 
 void AddRecordDev(int id, string devName)
@@ -126,3 +145,64 @@ void AddRecordDev(int id, string devName)
 	LRESULT index = SendMessage(hComboWnd, CB_ADDSTRING, NULL, (LPARAM)devName.c_str());
 	SendMessage(hComboWnd, CB_SETITEMDATA, index, id);
 }
+
+HRESULT EnableBlurBehind(HWND hwnd)
+{
+    HRESULT hr = S_OK;
+
+    // Create and populate the blur-behind structure.
+    DWM_BLURBEHIND bb = {0};
+
+    // Specify blur-behind and blur region.
+    bb.dwFlags = DWM_BB_ENABLE;
+    bb.fEnable = true;
+    bb.hRgnBlur = NULL;
+
+    // Enable blur-behind.
+    hr = DwmEnableBlurBehindWindow(hwnd, &bb);
+	MARGINS margins = {-1};
+
+    // Extend the frame across the whole window.
+    hr = DwmExtendFrameIntoClientArea(hwnd,&margins);
+    if (SUCCEEDED(hr))
+    {
+        // ...
+    }
+    return hr;
+}
+
+////绘制发光文字
+//void DrawGlowingText(HDC hDC, LPWSTR szText, RECT &rcArea, 
+//	DWORD dwTextFlags = DT_LEFT | DT_VCENTER | DT_SINGLELINE, int iGlowSize = 10)
+//{
+//	//获取主题句柄
+//	HTHEME hThm = OpenThemeData(GetDesktopWindow(), L"TextStyle");
+//	//创建DIB
+//	HDC hMemDC = CreateCompatibleDC(hDC);
+//	BITMAPINFO bmpinfo = {0};
+//	bmpinfo.bmiHeader.biSize = sizeof(bmpinfo.bmiHeader);
+//	bmpinfo.bmiHeader.biBitCount = 32;
+//	bmpinfo.bmiHeader.biCompression = BI_RGB;
+//	bmpinfo.bmiHeader.biPlanes = 1;
+//	bmpinfo.bmiHeader.biWidth = rcArea.right - rcArea.left;
+//	bmpinfo.bmiHeader.biHeight = -(rcArea.bottom - rcArea.top);
+//	HBITMAP hBmp = CreateDIBSection(hMemDC, &bmpinfo, DIB_RGB_COLORS, 0, NULL, 0);
+//	if (hBmp == NULL) return;
+//	HGDIOBJ hBmpOld = SelectObject(hMemDC, hBmp);
+//	//绘制选项
+//	DTTOPTS dttopts = {0};
+//	dttopts.dwSize = sizeof(DTTOPTS);
+//	dttopts.dwFlags = DTT_GLOWSIZE | DTT_COMPOSITED;
+//	dttopts.iGlowSize = iGlowSize;	//发光的范围大小
+//	//绘制文本
+//	RECT rc = {0, 0, rcArea.right - rcArea.left, rcArea.bottom - rcArea.top};
+//	HRESULT hr = DrawThemeTextEx(hThm, hMemDC, TEXT_LABEL, 0, szText, -1, dwTextFlags , &rc, &dttopts);
+//	if(FAILED(hr)) return;
+//	BitBlt(hDC, rcArea.left, rcArea.top, rcArea.right - rcArea.left, 
+//		rcArea.bottom - rcArea.top, hMemDC, 0, 0, SRCCOPY | CAPTUREBLT);
+//	//Clear
+//	SelectObject(hMemDC, hBmpOld);
+//	DeleteObject(hBmp);
+//	DeleteDC(hMemDC);
+//	CloseThemeData(hThm);
+//}
