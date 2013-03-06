@@ -21,4 +21,8 @@ public class MainActivity extends Activity {
 		return true;
 	}
 
+	public native void unimplementedStringFromJNI();
+	static {
+        System.loadLibrary("rtp-jni");
+    }
 }

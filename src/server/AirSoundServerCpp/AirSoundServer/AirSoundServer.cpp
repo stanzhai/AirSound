@@ -9,6 +9,8 @@
 #include "VoicePlaying.h"
 #include <ShellAPI.h>
 #include <dwmapi.h>
+#include <vsstyle.h>
+
 
 // 全局变量:
 HINSTANCE g_hInst;								// 当前实例
@@ -25,6 +27,7 @@ LRESULT CALLBACK DialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
 void Init(HWND hDlgWnd);
 void AddRecordDev(int id, string devName);
 HRESULT EnableBlurBehind(HWND hwnd);
+void DrawGlowingText(HDC hDC, int IDC);
 
 int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -56,7 +59,7 @@ LRESULT CALLBACK DialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
 			{
 				server.Start();
 			}
-			if (id == ID_NOTITYICONMENU_EXIT)
+			if (id == ID_NOTITYICONMENU_EXIT)	// 点击退出菜单，退出应用
 			{
 				Shell_NotifyIcon(NIM_DELETE,&g_nid);
 				EndDialog(hDlg, 0);
@@ -64,7 +67,7 @@ LRESULT CALLBACK DialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
 			break;
 		}
 	case WM_SYSCOMMAND:
-		if (wParam == SC_CLOSE)
+		if (wParam == SC_CLOSE)		// 暂时隐藏程序，不退出
 		{
 			ShowWindow(g_hMainWnd, SW_HIDE);  
 		}
@@ -106,6 +109,7 @@ LRESULT CALLBACK DialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
 				GetClientRect(g_hMainWnd, &rcClient);
 				HBRUSH hBrush = CreateSolidBrush(RGB(0, 0, 0));
 				FillRect(hDC, &rcClient, hBrush);
+				DrawGlowingText(hDC, IDC_STATIC);
 				EndPaint(g_hMainWnd, &ps);
 			}
 		}
@@ -127,7 +131,8 @@ void Init(HWND hDlgWnd)
 	if (count !=  0)
 	{
 		SendMessage(hComboWnd, CB_SETCURSEL, NULL, 0);
-	}	// 设置托盘图标
+	}
+	// 设置托盘图标
 	g_nid.cbSize = sizeof(g_nid);
 	g_nid.uID = IDC_NOTIFYICON;
 	g_nid.uCallbackMessage = WM_AIRSOUND_NOTIFY;
@@ -162,47 +167,57 @@ HRESULT EnableBlurBehind(HWND hwnd)
     hr = DwmEnableBlurBehindWindow(hwnd, &bb);
 	MARGINS margins = {-1};
 
-    // Extend the frame across the whole window.
     hr = DwmExtendFrameIntoClientArea(hwnd,&margins);
-    if (SUCCEEDED(hr))
-    {
-        // ...
-    }
     return hr;
 }
 
-////绘制发光文字
-//void DrawGlowingText(HDC hDC, LPWSTR szText, RECT &rcArea, 
-//	DWORD dwTextFlags = DT_LEFT | DT_VCENTER | DT_SINGLELINE, int iGlowSize = 10)
-//{
-//	//获取主题句柄
-//	HTHEME hThm = OpenThemeData(GetDesktopWindow(), L"TextStyle");
-//	//创建DIB
-//	HDC hMemDC = CreateCompatibleDC(hDC);
-//	BITMAPINFO bmpinfo = {0};
-//	bmpinfo.bmiHeader.biSize = sizeof(bmpinfo.bmiHeader);
-//	bmpinfo.bmiHeader.biBitCount = 32;
-//	bmpinfo.bmiHeader.biCompression = BI_RGB;
-//	bmpinfo.bmiHeader.biPlanes = 1;
-//	bmpinfo.bmiHeader.biWidth = rcArea.right - rcArea.left;
-//	bmpinfo.bmiHeader.biHeight = -(rcArea.bottom - rcArea.top);
-//	HBITMAP hBmp = CreateDIBSection(hMemDC, &bmpinfo, DIB_RGB_COLORS, 0, NULL, 0);
-//	if (hBmp == NULL) return;
-//	HGDIOBJ hBmpOld = SelectObject(hMemDC, hBmp);
-//	//绘制选项
-//	DTTOPTS dttopts = {0};
-//	dttopts.dwSize = sizeof(DTTOPTS);
-//	dttopts.dwFlags = DTT_GLOWSIZE | DTT_COMPOSITED;
-//	dttopts.iGlowSize = iGlowSize;	//发光的范围大小
-//	//绘制文本
-//	RECT rc = {0, 0, rcArea.right - rcArea.left, rcArea.bottom - rcArea.top};
-//	HRESULT hr = DrawThemeTextEx(hThm, hMemDC, TEXT_LABEL, 0, szText, -1, dwTextFlags , &rc, &dttopts);
-//	if(FAILED(hr)) return;
-//	BitBlt(hDC, rcArea.left, rcArea.top, rcArea.right - rcArea.left, 
-//		rcArea.bottom - rcArea.top, hMemDC, 0, 0, SRCCOPY | CAPTUREBLT);
-//	//Clear
-//	SelectObject(hMemDC, hBmpOld);
-//	DeleteObject(hBmp);
-//	DeleteDC(hMemDC);
-//	CloseThemeData(hThm);
-//}
+//绘制发光文字
+void DrawGlowingText(HDC hDC, int IDC)
+{
+	HWND hWnd = GetDlgItem(g_hMainWnd, IDC);
+	char szText[128] = {0};
+	GetWindowText(hWnd, szText, 128);
+
+	RECT rcArea;
+	GetWindowRect(hWnd, &rcArea);
+
+	DWORD dwTextFlags = DT_LEFT | DT_VCENTER | DT_SINGLELINE;
+	int iGlowSize = 10;
+
+	//获取主题句柄
+	HTHEME hThm = OpenThemeData(GetDesktopWindow(), L"TextStyle");
+	//创建DIB
+	HDC hMemDC = CreateCompatibleDC(hDC);
+	BITMAPINFO bmpinfo = {0};
+	bmpinfo.bmiHeader.biSize = sizeof(bmpinfo.bmiHeader);
+	bmpinfo.bmiHeader.biBitCount = 32;
+	bmpinfo.bmiHeader.biCompression = BI_RGB;
+	bmpinfo.bmiHeader.biPlanes = 1;
+	bmpinfo.bmiHeader.biWidth = rcArea.right - rcArea.left;
+	bmpinfo.bmiHeader.biHeight = -(rcArea.bottom - rcArea.top);
+	HBITMAP hBmp = CreateDIBSection(hMemDC, &bmpinfo, DIB_RGB_COLORS, 0, NULL, 0);
+	if (hBmp == NULL) return;
+	HGDIOBJ hBmpOld = SelectObject(hMemDC, hBmp);
+	//绘制选项
+	DTTOPTS dttopts = {0};
+	dttopts.dwSize = sizeof(DTTOPTS);
+	dttopts.dwFlags = DTT_GLOWSIZE | DTT_COMPOSITED;
+	dttopts.iGlowSize = iGlowSize;	//发光的范围大小
+	//绘制文本
+	RECT rc = {0, 0, rcArea.right - rcArea.left, rcArea.bottom - rcArea.top};
+
+	DWORD dwNum = MultiByteToWideChar (CP_ACP, 0, szText, -1, NULL, 0);
+	wchar_t *pwText;
+	pwText = new wchar_t[dwNum];
+	MultiByteToWideChar (CP_ACP, 0, szText, -1, pwText, dwNum);
+
+	HRESULT hr = DrawThemeTextEx(hThm, hMemDC, TEXT_LABEL, 0, pwText, -1, dwTextFlags , &rc, &dttopts);
+	if(FAILED(hr)) return;
+	BitBlt(hDC, rcArea.left, rcArea.top, rcArea.right - rcArea.left, 
+		rcArea.bottom - rcArea.top, hMemDC, 0, 0, SRCCOPY | CAPTUREBLT);
+	//Clear
+	SelectObject(hMemDC, hBmpOld);
+	DeleteObject(hBmp);
+	DeleteDC(hMemDC);
+	CloseThemeData(hThm);
+}
