@@ -4,7 +4,7 @@
 
 extern "C" {
 
-void Java_com_rtptran_CMainRTP_rtptransport(JNIEnv *, jobject);
+void Java_com_stanzhai_airsound_MainActivity_rtptransport(JNIEnv *, jobject);
 
 }
 
@@ -26,9 +26,11 @@ void Java_com_rtptran_CMainRTP_rtptransport(JNIEnv *, jobject);
 #include <iostream>
 #include <string>
 
-
 #include <android/log.h>
 const char* const LOG_TAG = "RTP_JNI";
+#define LOGD(...)  __android_log_print(ANDROID_LOG_DEBUG,LOG_TAG,__VA_ARGS__)
+
+
 //using namespace jrtplib
 
 //
@@ -36,23 +38,23 @@ const char* const LOG_TAG = "RTP_JNI";
 // message and exists.
 //
 
-//void checkerror(jint rtperr)
-//{
-//	if (rtperr < 0)
-//	{
-//		std::cout << "ERROR: " << RTPGetErrorString(rtperr) << std::endl;
-//		exit(-1);
-//	}
-//}
+void checkerror(jint rtperr)
+{
+	if (rtperr < 0)
+	{
+		string errorInfo = RTPGetErrorString(rtperr);
+		LOGD(errorInfo.c_str());
+		exit(-1);
+	}
+}
 
 //
 // The main routine
 //
 
-void Java_com_rtptran_CMainRTP_rtptransport(JNIEnv* env, jobject thiz)																 
+void Java_com_stanzhai_airsound_MainActivity_rtptransport(JNIEnv* env, jobject thiz)
 {
- 
-
+	LOGD("RTP-JNI, begin\n");
 
 	RTPSession sess;
 	uint16_t portbase,destport;
@@ -69,12 +71,12 @@ void Java_com_rtptran_CMainRTP_rtptransport(JNIEnv* env, jobject thiz)
 	
 //	std::cout << "Enter the destination IP address" << std::endl;
 //	std::cin >> ipstr;
-    ipstr="127.0.0.1";
+    ipstr="10.6.152.147";
 
 	destip = inet_addr(ipstr.c_str());
 	if (destip == INADDR_NONE)
 	{
-	//	std::cerr << "Bad IP address specified" << std::endl;
+		LOGD("destip error\n");
 		return ;
 	}
 	
@@ -97,7 +99,7 @@ void Java_com_rtptran_CMainRTP_rtptransport(JNIEnv* env, jobject thiz)
 
 
 //jboolean bl = (*env)->CallBooleanMethod(env, thiz, mid, js);
-	
+	LOGD("begin create session\n");
 	RTPUDPv4TransmissionParams transparams;
 	RTPSessionParams sessparams;
 	
@@ -105,19 +107,19 @@ void Java_com_rtptran_CMainRTP_rtptransport(JNIEnv* env, jobject thiz)
 	//            RTCP Sender Report info will be calculated wrong
 	// In this case, we'll be sending 10 samples each second, so we'll
 	// put the timestamp unit to (1.0/10.0)
-	sessparams.SetOwnTimestampUnit(1.0/10.0);		
+	sessparams.SetOwnTimestampUnit(1.0/8000.0);
 	
 	sessparams.SetAcceptOwnPackets(true);
 	transparams.SetPortbase(portbase);
 	status = sess.Create(sessparams,&transparams);	
-//	checkerror(status);
+	checkerror(status);
 	
 	RTPIPv4Address addr(destip,destport);
 	
 	status = sess.AddDestination(addr);
-//	checkerror(status);
+	checkerror(status);
 
-	__android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "%s", "ready\n");
+	LOGD("ready\n");
 
 
 	for (i = 1 ; i <= num ; i++)
@@ -126,7 +128,7 @@ void Java_com_rtptran_CMainRTP_rtptransport(JNIEnv* env, jobject thiz)
 		
 		// send the packet
 		status = sess.SendPacket((void *)"1234567890",10,0,false,10);
-//		checkerror(status);
+		checkerror(status);
 	//	 jboolean bl = (*env)->CallBooleanMethod(env, thiz, regsec, jregsec);
 
 		sess.BeginDataAccess();
@@ -140,11 +142,6 @@ void Java_com_rtptran_CMainRTP_rtptransport(JNIEnv* env, jobject thiz)
 				
 				while ((pack = sess.GetNextPacket()) != NULL)
 				{
-					// You can examine the data here
-				//	printf("Got packet !\n");
-					
-					// we don't longer need the packet, so
-					// we'll delete it
 					sess.DeletePacket(pack);
 				}
 			} while (sess.GotoNextSourceWithData());

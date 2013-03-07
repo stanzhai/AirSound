@@ -2,6 +2,7 @@ package com.stanzhai.airsound;
 
 import android.os.Bundle;
 import android.app.Activity;
+import android.util.Log;
 import android.view.Menu;
 import android.media.AudioTrack;
 
@@ -10,7 +11,9 @@ public class MainActivity extends Activity {
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		rtptransport();
 		setContentView(R.layout.activity_main);
+		
 		//AudioTrack at = new AudioTrack()
 	}
 
@@ -21,7 +24,7 @@ public class MainActivity extends Activity {
 		return true;
 	}
 
-	public native void unimplementedStringFromJNI();
+	public native void rtptransport();
 	static {
         System.loadLibrary("rtp-jni");
     }
