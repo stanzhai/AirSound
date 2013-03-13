@@ -67,11 +67,11 @@ void Java_com_stanzhai_airsound_MainActivity_rtptransport(JNIEnv* env, jobject t
 //	std::cout << "Enter local portbase:" << std::endl;
 //	std::cin >> portbase;
 //	std::cout << std::endl;
-	portbase=1008;
+	portbase=2008;
 	
 //	std::cout << "Enter the destination IP address" << std::endl;
 //	std::cin >> ipstr;
-    ipstr="10.6.152.147";
+    ipstr="127.0.0.1";
 
 	destip = inet_addr(ipstr.c_str());
 	if (destip == INADDR_NONE)
@@ -112,7 +112,9 @@ void Java_com_stanzhai_airsound_MainActivity_rtptransport(JNIEnv* env, jobject t
 	sessparams.SetAcceptOwnPackets(true);
 	transparams.SetPortbase(portbase);
 	status = sess.Create(sessparams,&transparams);	
+	LOGD("Begin check status\n");
 	checkerror(status);
+	LOGD("Create Session OK\n");
 	
 	RTPIPv4Address addr(destip,destport);
 	
